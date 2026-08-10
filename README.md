@@ -57,6 +57,20 @@ app will trust.
 `manifest.json` carries only the matching public key, in its `key` field, which
 is what makes an unpacked load resolve to the same ID.
 
+## When something goes wrong
+
+The browser's own native messaging errors, in the extension's service worker
+console, each name a different missing piece:
+
+| Message | What it means |
+| --- | --- |
+| "Specified native messaging host not found" | The registry key (Windows) or the host manifest (macOS, Linux) is missing. Start Nixie once, which writes both, then reload the extension. |
+| "Access to the specified native messaging host is forbidden" | This extension's id is not the one the host manifest allows. It was built or repacked with a different key. |
+| "Native host has exited" | Nixie is not running, or the token check failed against a stale config. Quit Nixie, start it again, and reload the extension. |
+
+The popup says which of the three states it is in, so start there. If it says
+nothing at all, open it once: until it has run, it has not connected.
+
 ## Layout
 
 - `manifest.json`: MV3 manifest, with the pinned public key.
@@ -64,6 +78,37 @@ is what makes an unpacked load resolve to the same ID.
   hello on connect, and answers the app's pulls with fresh cookies.
 - `popup.html`, `popup.js`: a three-line status readout and a retry button.
 - `icons/`: the toolbar and extension icons.
+- `scripts/verify.mjs`: asserts the manifest still derives the pinned id and
+  still asks for nothing beyond the cookies of one host. CI runs it on every
+  push, and the release runs it again against the tag.
 
 There is no build step and no dependency. It is plain JavaScript, loaded as it
 sits.
+
+## Releasing
+
+A release is a tag, exactly as in the desktop app:
+
+1. Bump `version` in `manifest.json` and commit it.
+2. `git tag v<version> && git push --follow-tags`.
+
+`.github/workflows/release.yml` takes it from there: it refuses the tag if the
+manifest states a different version, builds `nixie-link-<version>.zip` from an
+explicit list of runtime files, and publishes the release with that zip
+attached. The archive carries the manifest, the worker, the popup and the icons,
+and nothing else: no notes, no workflows, and never the private key, which is
+excluded by naming every file rather than sweeping the directory.
+
+Publishing to the Chrome Web Store or Edge Add-ons is a separate step and is not
+automated. Read the `key` caveat first: the store assigns an id of its own, so a
+store build is not automatically the id the desktop app allows. Whichever id the
+listing ends up with has to be the one the app pins, or store installs will
+connect to nothing.
+
+## Licence and privacy
+
+MIT, in [LICENSE](LICENSE). What the extension reads and where it goes is in
+[PRIVACY.md](PRIVACY.md), and the desktop side of the same path is documented in
+[Nixie's docs/extension.md](https://github.com/NixiePlayer/NixieDesktop/blob/main/docs/extension.md).
+The original design note for this bridge, written before any of it existed, is
+kept in [docs/design-bridge.md](docs/design-bridge.md).

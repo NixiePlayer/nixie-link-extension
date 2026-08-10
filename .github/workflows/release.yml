@@ -1,0 +1,52 @@
+name: Release
+
+# The tag is the whole trigger, as it is in the desktop app: `git tag v0.1.1 && git push --follow-tags`
+# is the release, and nothing is built by hand.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      # The manifest has to state the version the tag names. A zip whose manifest disagrees with the
+      # release it is attached to installs as a version nobody asked for, and the browser, the store and
+      # the release page then each believe something different.
+      - name: Verify the manifest against the tag
+        run: node scripts/verify.mjs "${GITHUB_REF_NAME#v}"
+      # Every file is named rather than globbed from the directory. The private key that pins the
+      # extension id lives in this working tree during development and is gitignored, and an allowlist
+      # is what makes it impossible for that (or a note, or a workflow) to reach a published zip even if
+      # the ignore rule is ever lost. manifest.json has to sit at the root of the archive, so the zip is
+      # built from the repository root and never from a staging directory.
+      - name: Build the archive
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          zip -r "nixie-link-${VERSION}.zip" \
+            manifest.json \
+            background.js \
+            popup.html \
+            popup.js \
+            icons
+          unzip -l "nixie-link-${VERSION}.zip"
+      # Created directly rather than as a draft: this release carries one file and nothing has to be
+      # assembled around it, so there is no window in which a reader could see half of it.
+      - name: Publish the release
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "Download \`nixie-link-${VERSION}.zip\`, unzip it, and load the folder through Developer mode. [README](https://github.com/NixiePlayer/nixie-connector-extension#installing-it-unpacked) has the steps, and the Nixie desktop app must be running for the extension to hand anything over." \
+            "nixie-link-${VERSION}.zip"

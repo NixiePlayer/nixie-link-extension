@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A force push should replace the run in flight rather than queue behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # There is no build step and no dependency here: the extension is plain JavaScript loaded as it
+    # sits. What can break is the manifest, so that is what this checks, on the cheapest runner.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - run: node scripts/verify.mjs
