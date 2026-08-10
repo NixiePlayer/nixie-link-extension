@@ -48,5 +48,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
-            --notes "Download \`nixie-link-${VERSION}.zip\`, unzip it, and load the folder through Developer mode. [README](https://github.com/NixiePlayer/nixie-connector-extension#installing-it-unpacked) has the steps, and the Nixie desktop app must be running for the extension to hand anything over." \
+            --notes "Download \`nixie-link-${VERSION}.zip\`, unzip it, and load the folder through Developer mode. [Install](https://github.com/NixiePlayer/nixie-connector-extension#install) has the steps, and the Nixie desktop app must be installed and running for the extension to hand anything over." \
             "nixie-link-${VERSION}.zip"
