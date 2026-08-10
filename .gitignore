@@ -1,0 +1,6 @@
+# The private key that pins the extension ID. Never commit this.
+nixie-extension.pem
+
+# Derived from the key, kept out for the same reason.
+.manifest-key.txt
+.extension-id.txt
