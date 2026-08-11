@@ -1,52 +1,52 @@
 # Privacy
 
-Nixie Link reads the YouTube session cookies of the browser profile it is installed in and hands them
-to the Nixie desktop app running on the same computer. That is the only thing it does, and this page
-is the whole of what it touches.
+Nixie Link reads selected YouTube session cookies from the browser profile where it is installed. It
+sends them only to the Nixie desktop app on the same computer after that app proves it knows the
+profile's pairing code.
 
-## What it reads
+## Data it reads
 
-The cookies of `https://*.youtube.com/`, and no other host. It asks for one host permission and the
-browser enforces it: cookies belonging to any other site are not readable by this extension at all.
+The extension has host access only to `https://*.youtube.com/`. Before data leaves the worker, a fixed
+allowlist removes each cookie name that Nixie does not need. The extension does not read another site.
+It has no content script and cannot read or change page content.
 
-Before anything leaves the service worker it is filtered down to the session cookie names the desktop
-app needs to build a YouTube Music session. Everything else in that cookie store, including anything
-YouTube keeps for its own purposes, is dropped.
+## Data transfer
 
-## Where it goes
+The extension makes no network request. It uses Chromium native messaging to reach the local host
+`com.theedoran.nixie`. It sends profile status without cookies. It sends cookies only after an
+authenticated pull from Nixie, and encrypts each payload with AES-256-GCM before it enters the native
+messaging channel.
 
-To one place: the native messaging host `com.theedoran.nixie`, which is the Nixie desktop app on the
-same computer. Chrome native messaging is a pipe between the browser and a locally installed program;
-it is not a network connection and it does not leave the machine.
+It collects no analytics or telemetry. It keeps no cookie history or cookie copy. Each accepted pull
+reads the browser's current cookie store.
 
-The browser only starts that host for an extension the host's own manifest names, and the app only
-accepts a connection carrying a token it wrote into a file readable by the current user. Cookies
-travel in one direction, browser to app. The app sends requests for the current cookies and never
-sends a cookie back.
+## Data it stores
 
-## What it does not do
+The browser's extension-local storage contains:
 
-- It makes no network requests of its own. It contacts no server, ours or anyone else's.
-- It collects no analytics and reports no telemetry. There is nothing to opt out of.
-- It has no content script, so it cannot read or change any page you visit.
-- It keeps no history and no copy of the cookies. Each request is answered from the browser's own
-  cookie store at that moment.
+- a random profile identifier
+- a random 256-bit pairing code
 
-## What it stores
+Neither value names a person or a YouTube account. The pairing code is a secret. Do not share it with
+another application. Resetting it in the popup revokes the current desktop pairing on the next pull.
 
-One value, in the browser's own extension storage: a random identifier generated on first run. It is
-how the desktop app tells two browser profiles apart in its sign-in list. It names no account, no
-person and no session, and it is meaningless outside this pair of programs.
+Nixie stores its paired copy through the operating system facility exposed by Electron `safeStorage`.
+See [Nixie's privacy notice](https://github.com/NixiePlayer/NixieDesktop/blob/main/PRIVACY.md) for the
+desktop side.
 
-## Ending it
+## Retention and removal
 
-Removing the extension ends it. Signing out inside the Nixie app ends the link, and signing out of
-YouTube in this browser ends the session the link was built on. None of them leave anything behind
-here.
+Removing the extension removes its local extension data. Signing out of YouTube sends an empty session
+on the next authenticated pull. Nixie clears its copied extension session when a pull reports sign-out
+or fails. Signing out inside Nixie also removes its linked-account record and auth partition.
+
+## Security limit
+
+The pairing protocol blocks a replacement native host that does not know the pairing code. It does not
+claim to resist malware that already runs as the same operating-system user and can read or alter the
+browser profile. This extension is loaded unpacked and the Windows desktop app is currently unsigned.
 
 ## Questions
 
 Open an issue at
-[NixiePlayer/nixie-connector-extension](https://github.com/NixiePlayer/nixie-connector-extension/issues).
-The desktop side is described in
-[Nixie's own privacy notice](https://github.com/NixiePlayer/NixieDesktop/blob/main/PRIVACY.md).
+[NixiePlayer/nixie-link-extension](https://github.com/NixiePlayer/nixie-link-extension/issues).

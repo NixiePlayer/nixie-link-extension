@@ -1,163 +1,107 @@
 <p align="center">
-  <a href="https://github.com/NixiePlayer/nixie-connector-extension/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NixiePlayer/nixie-connector-extension?style=flat-square&color=ff0033&label=release"></a>
+  <a href="https://github.com/NixiePlayer/nixie-link-extension/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NixiePlayer/nixie-link-extension?style=flat-square&color=ff0033&label=release"></a>
   <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-blue?style=flat-square"></a>
   <img alt="Manifest V3" src="https://img.shields.io/badge/manifest-v3-lightgrey?style=flat-square">
-  <img alt="Browsers" src="https://img.shields.io/badge/Chrome%20%7C%20Edge%20%7C%20Brave%20%7C%20Vivaldi-lightgrey?style=flat-square">
 </p>
 
-Nixie Link hands the YouTube session of the browser profile it is installed in to the
-[Nixie](https://github.com/NixiePlayer/NixieDesktop) desktop app running on the same
-computer. That is the whole of it: it reads the cookies of one site, passes them to one
-local program, and does nothing else.
+# Nixie Link
 
-It exists for Windows, where Chrome and usually Edge, Brave, Vivaldi and Chromium encrypt
-their cookie store in a way nothing outside the browser can read. Everywhere else Nixie
-reads the profile from disk and this extension is optional.
+Nixie Link connects the YouTube session in one Chromium browser profile to the
+[Nixie](https://github.com/NixiePlayer/NixieDesktop) desktop app on the same computer.
+It exists mainly for Windows, where current Chromium browsers use App-Bound Encryption and a normal
+desktop app cannot read their cookie database.
 
 > [!IMPORTANT]
-> **Nixie is an independent, unofficial project and is not affiliated with, endorsed by, or
-> sponsored by Google or YouTube.** YouTube and YouTube Music are trademarks of Google LLC,
-> named here only to say which service is being connected to.
-
-> [!IMPORTANT]
-> **This extension does nothing on its own.** It is one half of a pair: the Nixie desktop
-> app has to be installed and running, and it is the app that registers the messaging host
-> the browser launches. Install the app first.
+> Nixie is independent and unofficial. It is not affiliated with, endorsed by, or sponsored by
+> Google or YouTube. YouTube and YouTube Music are trademarks of Google LLC.
 
 ## Install
 
-It is not on the Chrome Web Store or Edge Add-ons, so it is loaded unpacked. Take the zip
-from the [releases page](https://github.com/NixiePlayer/nixie-connector-extension/releases/latest),
-or clone this repository and point the browser at the folder.
+This extension is not published to the Chrome Web Store, Edge Add-ons, or another browser
+marketplace. The only release channel is this repository.
 
-1. Unzip it somewhere you are happy to leave it. The browser reads the folder every time it
-   starts, so deleting it uninstalls the extension.
-2. Open `chrome://extensions`, or `edge://extensions`, `brave://extensions`, and so on.
-3. Turn on **Developer mode**.
-4. **Load unpacked**, and pick the folder holding `manifest.json`.
-5. Check the id on the card reads `pgknibkmcmahfafgbkndpkkcpciigleb`.
+1. Install and start the Nixie desktop app.
+2. Download `nixie-link-<version>.zip` from the
+   [latest GitHub release](https://github.com/NixiePlayer/nixie-link-extension/releases/latest).
+3. Unzip it to a folder that you will keep.
+4. Open `chrome://extensions`, `edge://extensions`, `brave://extensions`, or the equivalent page.
+5. Turn on **Developer mode** and select **Load unpacked**.
+6. Select the folder that contains `manifest.json`.
+7. Confirm that the extension ID is `pgknibkmcmahfafgbkndpkkcpciigleb`.
+8. Open the Nixie Link popup and copy its pairing code.
+9. Paste the code into the connected browser row on Nixie's sign-in screen.
 
-That id is not cosmetic. The desktop app allows exactly one extension to speak to it, and a
-build that resolves to any other id is refused by the browser before a byte moves. The id
-comes from the public key in the manifest, so a copy that still carries it resolves the
-same way on every machine.
+The public key in `manifest.json` gives unpacked installs a stable ID. It is not proof that the code
+is genuine because another unpacked extension can copy that public key. The private pairing code is
+the application-level trust check. Download releases only from this repository and inspect the
+source when the session matters to you.
 
-Then start Nixie, sign in to YouTube Music in that browser if you have not, and open the
-extension once from the toolbar. The profile appears on Nixie's sign-in screen on its own,
-with no refresh. A profile that holds no YouTube session is listed too, dimmed, saying so,
-rather than quietly not appearing.
+Chrome can show a warning for developer-mode extensions at startup. Some managed computers block
+unpacked extensions. This project does not offer a marketplace installation as a fallback.
 
-Chrome shows a "disable developer mode extensions" prompt on every start while an unpacked
-extension is loaded, and some managed machines block them outright. That is the cost of
-loading unpacked, and it is the only install path this project offers today.
+## Permissions and data flow
 
-## What it can and cannot do
+- `cookies` and `https://*.youtube.com/` let the worker read YouTube cookies only.
+- A fixed allowlist removes all cookie names that Nixie does not need.
+- `nativeMessaging` connects to the local host named `com.theedoran.nixie`.
+- `storage` keeps a random profile ID and a random 256-bit pairing code in this browser profile.
+- `alarms` reconnects the worker when the desktop app starts later.
+- There are no content scripts, network requests, analytics, or telemetry.
 
-- It asks for the cookies of `https://*.youtube.com/`, one host and no other. The browser
-  enforces that: the cookies of any other site are not readable by this extension at all.
-- It filters to the session cookie names the app needs before anything leaves the worker,
-  so the rest of that cookie store never travels.
-- It speaks to exactly one native messaging host, `com.theedoran.nixie`, which is the local
-  Nixie app. It makes no network request of its own, contacts no server, and has no
-  analytics or telemetry.
-- It has no content script, so it cannot read or change any page you visit.
-- It keeps no copy of anything. The one value it stores is a random identifier, which is
-  how the app tells two browser profiles apart.
+The extension sends a hello with only its random ID, browser name, and signed-in state. It never
+pushes cookies. Nixie requests cookies when it needs a fresh session. Each request has a fresh nonce
+and an HMAC made with the pairing code. The extension ignores a request that does not authenticate.
+It encrypts each accepted cookie payload with AES-256-GCM before native messaging carries it. The
+native relay and a replacement host that does not know the pairing code cannot read the payload.
 
-[PRIVACY.md](PRIVACY.md) states the same thing in full.
+Nixie protects its stored copy of the pairing code with Electron `safeStorage`. On Linux, pairing is
+refused when only the insecure `basic_text` backend is available. The normal local-user security
+boundary still applies: malware running as the same operating-system user can read or control browser
+profile data. An unpacked extension and an unsigned Windows app cannot provide a stronger identity
+boundary against that malware.
 
-## How the link works
+Signing out of YouTube produces an authenticated empty cookie set. Nixie then clears its copied
+session. Resetting the pairing code or removing the extension makes the next refresh fail, and Nixie
+clears its copied extension session instead of retaining stale cookies.
 
-Chrome native messaging is a pipe between an extension and a locally installed program. The
-browser starts the program itself and hands it a channel on standard input and output. It
-is not a network connection, there is no port and no server, and nothing reaches it from
-outside the machine.
-
-Both ends are pinned. The browser only starts the host for an extension the host's own
-manifest names, so no other extension can offer cookies to Nixie. The extension names the
-host and the operating system resolves it through that manifest, so it cannot be pointed at
-another program. The app then only accepts a connection carrying a token it wrote into a
-file readable by the current user.
-
-Cookies travel one way, browser to app. The app asks for the current cookies when it needs
-them, at most once a minute, because Google expires the session every few minutes and only
-the browser holds the current value. Nothing is pushed and nothing is cached.
-
-Signing out inside Nixie ends the link. Removing the extension ends it, and so does signing
-out of YouTube in this browser.
-
-## When something goes wrong
-
-The popup says which of three states it is in, so start there. If it says nothing at all,
-open it once: until it has run, it has not connected. Beyond that, the browser's own
-messaging errors each name a different missing piece, and they appear in the extension's
-service worker console:
-
-| Message | What it means |
-| --- | --- |
-| Specified native messaging host not found | The registry key (Windows) or the host manifest (macOS, Linux) is missing. Start Nixie once, which writes both, then reload the extension. |
-| Access to the specified native messaging host is forbidden | This build's id is not the one the host manifest allows. It was built or repacked with a different key. |
-| Native host has exited | Nixie is not running, or the token check failed against a stale config. Quit Nixie, start it again, then reload the extension. |
-
-One thing that looks like a fault and is not: on Windows a profile can be missing from
-Nixie's own disk-read list while that browser is open, because a running Chromium holds its
-cookie file locked. The extension has no such problem, which is part of why it exists.
+See [PRIVACY.md](PRIVACY.md) and [docs/design-bridge.md](docs/design-bridge.md).
 
 ## Development
 
-There is no build step and no dependency. It is plain JavaScript, loaded as it sits.
-
-| Path | What lives there |
-| --- | --- |
-| `manifest.json` | MV3 manifest, carrying the public key that pins the id |
-| `background.js` | The service worker: opens the native port, sends one hello, answers the app's pulls with fresh cookies |
-| `popup.html`, `popup.js` | A three-line status readout and a retry button |
-| `icons/` | Toolbar and extension icons |
-| `scripts/verify.mjs` | The manifest gate, described below |
-| `docs/design-bridge.md` | The original design note for this bridge, written before any of it existed |
+There is no build step and no third-party dependency.
 
 ```sh
+node --check background.js
+node --check popup.js
+node --check protocol.js
+node --test scripts/protocol.test.mjs
 node scripts/verify.mjs
 ```
 
-That is the whole gate, and CI runs it on every push and pull request. It asserts the two
-things that are load-bearing here and break silently rather than loudly: that the manifest
-key still derives `pgknibkmcmahfafgbkndpkkcpciigleb`, since an edited or missing key leaves
-every install unable to connect with nothing on screen to say why, and that the permissions
-are still the cookies of one host and nothing more, since an extension that asks for more
-is a different extension wearing the same name.
+CI runs the same checks. The manifest check pins the ID, exact permission set, host permission,
+module worker, private runtime surface, description limit, and optional tag version.
 
-### The private key
+| Path | Purpose |
+| --- | --- |
+| `manifest.json` | Manifest V3 permissions, stable public key, and entry points |
+| `background.js` | Cookie allowlist, native connection, status, and pull handling |
+| `protocol.js` | Pairing proof and cookie encryption |
+| `popup.html`, `popup.js` | Connection state and pairing-code controls |
+| `scripts/verify.mjs` | Release and manifest policy check |
+| `scripts/protocol.test.mjs` | Desktop-to-extension protocol compatibility check |
 
-`nixie-extension.pem` is the private key the id is derived from, and it is what makes the
-desktop app trust this extension and no other. It is gitignored and it must stay out of the
-repository and out of any archive: anyone holding it can build an extension Nixie will
-accept. Keep it wherever the project's other credentials live. `manifest.json` carries only
-the matching public key.
+## Release
 
-### Releasing
-
-A release is a tag, the same as in the desktop app:
+Set `manifest.json` to the release version, commit it, and push a matching tag:
 
 ```sh
-# bump "version" in manifest.json, commit it, then
-git tag v0.1.0 && git push --follow-tags
+git tag v0.1.0
+git push --follow-tags
 ```
 
-The workflow refuses a tag whose version the manifest does not state, builds
-`nixie-link-<version>.zip`, and publishes the release with it attached. Every file in that
-archive is named rather than swept from the directory, so the private key cannot reach a
-published zip even if its ignore rule is ever lost, and `manifest.json` sits at the archive
-root, where the browser expects it.
+The workflow verifies the code and tag, creates an allowlisted zip, checks its exact contents, and
+publishes it as a GitHub release. It does not submit or deploy the extension to a browser marketplace.
 
-## Licence and legal
+## Licence
 
-MIT, in [LICENSE](LICENSE). See also [PRIVACY.md](PRIVACY.md), and
-[docs/extension.md](https://github.com/NixiePlayer/NixieDesktop/blob/main/docs/extension.md)
-in the desktop repository for the same path described from the app's side.
-
-This extension is part of an independent, unofficial project and is not affiliated with,
-endorsed by, or sponsored by YouTube, Google, or any browser vendor. YouTube and YouTube
-Music are trademarks of Google LLC, used here only to say what is being connected to. You
-need your own YouTube Music account, and your use of that account remains subject to
-YouTube's terms.
+MIT, in [LICENSE](LICENSE).
