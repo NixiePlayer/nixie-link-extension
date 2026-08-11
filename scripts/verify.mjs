@@ -60,6 +60,20 @@ if (hosts.join(",") !== EXPECTED_HOSTS.join(",")) {
 // A content script would let this read and change the pages it runs on, which is the one capability the
 // README promises it does not have.
 if (manifest.content_scripts) failures.push("manifest declares content_scripts, which this extension must not have");
+if (manifest.externally_connectable) {
+  failures.push("manifest declares externally_connectable, which would expose private runtime messages");
+}
+if (manifest.web_accessible_resources) {
+  failures.push("manifest declares web_accessible_resources, which this extension does not need");
+}
+
+if (typeof manifest.description !== "string" || manifest.description.length > 132) {
+	failures.push(`description is ${manifest.description?.length ?? "missing"} characters, expected at most 132`);
+}
+
+if (manifest.background?.service_worker !== "background.js" || manifest.background?.type !== "module") {
+	failures.push("background must use background.js as a module service worker");
+}
 
 const expectedVersion = process.argv[2];
 if (expectedVersion && manifest.version !== expectedVersion) {
