@@ -1,14 +1,14 @@
 // Nixie Link service worker.
 //
-// Reads the YouTube session cookies of the browser profile this extension is
-// installed in and hands them to the Nixie desktop app over native messaging.
-// The app is the only thing it ever speaks to.
+// Reads the YouTube session cookies of this browser profile and sends them only
+// after an authenticated request from the paired Nixie desktop app. Cookie
+// payloads are encrypted before they enter the native-messaging channel.
+
+import { encryptCookies, fromBase64Url, toBase64Url, validPull } from "./protocol.js";
 
 const HOST = "com.theedoran.nixie";
 const RECONNECT_ALARM = "reconnect";
-
-// The session cookies the app needs. Everything else on youtube.com is dropped
-// before it ever leaves the worker.
+const SECRET_KEY = "pairingSecret";
 const COOKIE_NAMES = new Set([
   "SID",
   "HSID",
@@ -34,33 +34,49 @@ const COOKIE_NAMES = new Set([
   "__Secure-ROLLOUT_TOKEN",
 ]);
 
-// A signed-in profile always carries one of these.
-const AUTH_NAMES = ["SAPISID", "__Secure-3PAPISID"];
-
-const BRANDS = [
-  "Microsoft Edge",
-  "Brave",
-  "Vivaldi",
-  "Opera",
-  "Google Chrome",
-  "Chromium",
-];
-
+const AUTH_NAMES = new Set(["SAPISID", "__Secure-3PAPISID"]);
+const BRANDS = ["Microsoft Edge", "Brave", "Vivaldi", "Opera", "Google Chrome", "Chromium"];
+const INSTALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let port = null;
+let pairingSecretPromise;
+let installIdPromise;
 
-/**
- * The only thing that tells two profiles of the same browser apart. Minted once
- * and kept for the life of the profile.
- */
-async function installId() {
+async function readPairingSecret() {
+  const stored = await chrome.storage.local.get(SECRET_KEY);
+  const bytes = fromBase64Url(stored[SECRET_KEY]);
+  if (bytes?.length === 32 && toBase64Url(bytes) === stored[SECRET_KEY]) {
+    return stored[SECRET_KEY];
+  }
+  const secret = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+  await chrome.storage.local.set({ [SECRET_KEY]: secret });
+  return secret;
+}
+
+function pairingSecret() {
+  return (pairingSecretPromise ??= readPairingSecret());
+}
+
+function resetPairingSecret() {
+  return (pairingSecretPromise = pairingSecret()
+    .catch(() => undefined)
+    .then(async () => {
+      await chrome.storage.local.remove(SECRET_KEY);
+      return readPairingSecret();
+    }));
+}
+
+async function readInstallId() {
   const stored = await chrome.storage.local.get("installId");
-  if (stored.installId) return stored.installId;
+  if (typeof stored.installId === "string" && INSTALL_ID.test(stored.installId)) return stored.installId;
   const id = crypto.randomUUID();
   await chrome.storage.local.set({ installId: id });
   return id;
 }
 
-/** A display name for the browser this profile belongs to. */
+function installId() {
+  return (installIdPromise ??= readInstallId());
+}
+
 function brand() {
   const brands = navigator.userAgentData?.brands ?? [];
   for (const known of BRANDS) {
@@ -69,7 +85,6 @@ function brand() {
   return "Chromium";
 }
 
-/** The filtered session cookies, shaped the way the app reads them. */
 async function collect() {
   const all = await chrome.cookies.getAll({ domain: "youtube.com" });
   return all
@@ -85,15 +100,33 @@ async function collect() {
     }));
 }
 
+function signedIn(cookies) {
+  return cookies.some((cookie) => AUTH_NAMES.has(cookie.name));
+}
+
 function setStatus(status) {
   chrome.storage.session.set({ status }).catch(() => {});
 }
 
-/**
- * Opens the port to the native host and introduces this profile. The port is
- * held for as long as the app keeps it open: the host's own ping is what holds
- * the worker awake, and the reconnect alarm is the only retry.
- */
+async function announceStatus(opened) {
+  const active = signedIn(await collect());
+  if (port === opened) {
+    opened.postMessage({ type: "status", installId: await installId(), signedIn: active });
+    setStatus(active ? "connected" : "signed-out");
+  }
+}
+
+async function answerPull(opened, message) {
+  const [secret, id] = await Promise.all([pairingSecret(), installId()]);
+  if (!(await validPull(message, secret, id))) return;
+  const cookies = await collect();
+  const encrypted = await encryptCookies(cookies, message, secret, id);
+  if (port === opened) {
+    opened.postMessage({ type: "cookies", id: message.id, nonce: message.nonce, ...encrypted });
+    setStatus(signedIn(cookies) ? "connected" : "signed-out");
+  }
+}
+
 async function connect() {
   if (port) return;
 
@@ -112,41 +145,28 @@ async function connect() {
   });
 
   opened.onMessage.addListener((message) => {
-    // A ping is the host's keepalive. Receiving it is the whole point: it
-    // resets the worker's idle timer, so there is nothing to answer.
     if (!message || message.type === "ping") return;
-    if (message.type === "pull") {
-      collect().then(
-        (cookies) => {
-          if (port === opened) {
-            opened.postMessage({ type: "cookies", id: message.id, cookies });
-          }
-        },
-        () => {},
-      );
-    }
+    if (message.type === "pull") answerPull(opened, message).catch(() => {});
   });
 
   try {
     const cookies = await collect();
-    const signedIn = cookies.some((cookie) => AUTH_NAMES.includes(cookie.name));
+    const active = signedIn(cookies);
     opened.postMessage({
       type: "hello",
       installId: await installId(),
       browser: brand(),
-      signedIn,
-      cookies,
+      signedIn: active,
     });
-    setStatus(signedIn ? "connected" : "signed-out");
+    setStatus(active ? "connected" : "signed-out");
   } catch {
     if (port === opened) port = null;
+    opened.disconnect();
     setStatus("app-not-running");
   }
 }
 
-chrome.runtime.onStartup.addListener(() => {
-  connect();
-});
+chrome.runtime.onStartup.addListener(connect);
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(RECONNECT_ALARM, { periodInMinutes: 1 });
@@ -157,6 +177,28 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === RECONNECT_ALARM) connect();
 });
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === "reconnect") connect();
+chrome.cookies.onChanged.addListener(({ cookie }) => {
+  if (port && COOKIE_NAMES.has(cookie.name) && (cookie.domain === "youtube.com" || cookie.domain.endsWith(".youtube.com"))) {
+    announceStatus(port).catch(() => {});
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id) return;
+  if (message?.type === "reconnect") {
+    connect();
+    sendResponse({ ok: true });
+  } else if (message?.type === "pairing-secret") {
+    pairingSecret().then(
+      (secret) => sendResponse({ secret }),
+      () => sendResponse({}),
+    );
+    return true;
+  } else if (message?.type === "reset-pairing-secret") {
+    resetPairingSecret().then(
+      (secret) => sendResponse({ secret }),
+      () => sendResponse({}),
+    );
+    return true;
+  }
 });

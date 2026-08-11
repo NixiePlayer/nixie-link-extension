@@ -8,6 +8,7 @@ const MESSAGES = {
 };
 
 const message = document.getElementById("message");
+const pairing = document.getElementById("pairing");
 
 function show(state) {
   message.textContent = state.text;
@@ -21,17 +22,29 @@ function show(state) {
 }
 
 async function render() {
-  const stored = await chrome.storage.session.get("status");
+  const [stored, response] = await Promise.all([
+    chrome.storage.session.get("status"),
+    chrome.runtime.sendMessage({ type: "pairing-secret" }),
+  ]);
   show(MESSAGES[stored.status] ?? MESSAGES["app-not-running"]);
+  pairing.textContent = response?.secret ?? "Unavailable";
 }
+
+document.getElementById("copy").addEventListener("click", async () => {
+  if (pairing.textContent && pairing.textContent !== "Unavailable") {
+    await navigator.clipboard.writeText(pairing.textContent);
+  }
+});
+
+document.getElementById("reset").addEventListener("click", async () => {
+  if (!confirm("Reset the pairing code? Nixie will need the new code.")) return;
+  const response = await chrome.runtime.sendMessage({ type: "reset-pairing-secret" });
+  pairing.textContent = response?.secret ?? "Unavailable";
+});
 
 document.getElementById("retry").addEventListener("click", async () => {
   message.textContent = "Checking...";
-  try {
-    await chrome.runtime.sendMessage({ type: "reconnect" });
-  } catch {
-    // The worker takes the message and answers nothing, which rejects here.
-  }
+  await chrome.runtime.sendMessage({ type: "reconnect" }).catch(() => {});
   setTimeout(render, 400);
 });
 

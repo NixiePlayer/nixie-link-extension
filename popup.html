@@ -8,7 +8,7 @@
         color-scheme: dark light;
       }
       body {
-        width: 260px;
+        width: 300px;
         margin: 0;
         padding: 16px;
         font: 13px/1.5 system-ui, sans-serif;
@@ -27,8 +27,21 @@
       a {
         color: #8ab4ff;
       }
+      code {
+        display: block;
+        margin-bottom: 8px;
+        padding: 8px;
+        border: 1px solid #3a3a40;
+        border-radius: 6px;
+        overflow-wrap: anywhere;
+        user-select: all;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
       button {
-        width: 100%;
+        flex: 1;
         padding: 7px;
         border: 1px solid #3a3a40;
         border-radius: 6px;
@@ -51,8 +64,11 @@
         a {
           color: #1a4fd6;
         }
+        code,
         button {
           border-color: #d4d4d8;
+        }
+        button {
           background: #f4f4f5;
         }
         button:hover {
@@ -64,7 +80,13 @@
   <body>
     <h1>Nixie Link</h1>
     <p id="message">Checking...</p>
-    <button id="retry" type="button">Try again</button>
+    <p>Paste this pairing code into Nixie. Keep it private.</p>
+    <code id="pairing">Loading...</code>
+    <div class="actions">
+      <button id="copy" type="button">Copy code</button>
+      <button id="reset" type="button">Reset code</button>
+    </div>
+    <button id="retry" type="button" style="width: 100%; margin-top: 8px">Try again</button>
     <script src="popup.js"></script>
   </body>
 </html>

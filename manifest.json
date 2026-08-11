@@ -3,10 +3,11 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAplkbaH4Mx+SC7tIGx7zGQBfrIB39v8f5OxYfJdBoF46hbQHIxETZrd1ITVf+EvZ6YI9Srb9X7SLBXJybyno/UeE1jqFF+zh9T+u4Xxdw1NiTcE6pW2dyEy7ZQRw9spwkedhb++MmEfgB4b11TtZypBfxxqHoYF+CDbfPKEZH5/1I15H00vHJj022FNbiX84ONXaJpg7zVOYbQwDf09GjbHRrzZIAMYuWvrFsf0oV4A2Dv+Cy+nVUPWqbWLq5vPDuIRhVnKzhHixKmA1AzdKVGeWs7AzZJRylHdPShceUW7u3BG2KPpsfnbR8OGaOMwsKXAcYXeBcwodeS3J+VxL9zwIDAQAB",
   "name": "Nixie Link",
   "version": "0.1.0",
-  "description": "Reads YouTube session cookies from this browser profile and hands them to the Nixie desktop app running on this computer. It does nothing else.",
+  "description": "Securely links this browser profile's YouTube session to the Nixie desktop app on this computer.",
   "minimum_chrome_version": "120",
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "permissions": ["cookies", "nativeMessaging", "alarms", "storage"],
   "host_permissions": ["https://*.youtube.com/"],
