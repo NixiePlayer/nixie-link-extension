@@ -21,7 +21,9 @@ import { readFileSync } from "node:fs";
 /** The id the desktop app pins. It appears in the app's `native-host-register.ts` and nowhere else. */
 const EXPECTED_ID = "pgknibkmcmahfafgbkndpkkcpciigleb";
 const EXPECTED_PERMISSIONS = ["alarms", "cookies", "nativeMessaging", "storage"];
-const EXPECTED_HOSTS = ["https://*.youtube.com/"];
+// Both schemes: Chromium checks a cookie without the Secure flag against its http origin, so an
+// https-only pattern silently drops SID, HSID, APISID and SIDCC from cookies.getAll.
+const EXPECTED_HOSTS = ["*://*.youtube.com/"];
 
 const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
 const failures = [];
@@ -61,10 +63,10 @@ if (hosts.join(",") !== EXPECTED_HOSTS.join(",")) {
 // README promises it does not have.
 if (manifest.content_scripts) failures.push("manifest declares content_scripts, which this extension must not have");
 if (manifest.externally_connectable) {
-  failures.push("manifest declares externally_connectable, which would expose private runtime messages");
+	failures.push("manifest declares externally_connectable, which would expose private runtime messages");
 }
 if (manifest.web_accessible_resources) {
-  failures.push("manifest declares web_accessible_resources, which this extension does not need");
+	failures.push("manifest declares web_accessible_resources, which this extension does not need");
 }
 
 if (typeof manifest.description !== "string" || manifest.description.length > 132) {

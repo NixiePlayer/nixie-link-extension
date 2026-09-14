@@ -10,7 +10,7 @@
     "type": "module"
   },
   "permissions": ["cookies", "nativeMessaging", "alarms", "storage"],
-  "host_permissions": ["https://*.youtube.com/"],
+  "host_permissions": ["*://*.youtube.com/"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Nixie Link"

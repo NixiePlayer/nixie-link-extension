@@ -1,5 +1,5 @@
 const MESSAGES = {
-  connected: { text: "Connected to Nixie." },
+  connected: { text: "Connected to Nixie. Cookies are sent only to a paired Nixie." },
   "app-not-running": { text: "Open Nixie on this computer, then try again." },
   "signed-out": {
     text: "Sign in to YouTube Music in this browser first: ",
@@ -21,12 +21,27 @@ function show(state) {
   message.append(anchor);
 }
 
-async function render() {
-  const [stored, response] = await Promise.all([
-    chrome.storage.session.get("status"),
-    chrome.runtime.sendMessage({ type: "pairing-secret" }),
-  ]);
-  show(MESSAGES[stored.status] ?? MESSAGES["app-not-running"]);
+let statusSeen = false;
+
+function showStatus(status) {
+  show(MESSAGES[status] ?? MESSAGES["app-not-running"]);
+}
+
+// A change event that arrives while the initial read is in flight is newer than the read, so the
+// read result is shown only when no event has been rendered yet.
+chrome.storage.session.onChanged.addListener((changes) => {
+  if (!changes.status) return;
+  statusSeen = true;
+  showStatus(changes.status.newValue);
+});
+
+async function renderStatus() {
+  const stored = await chrome.storage.session.get("status").catch(() => ({}));
+  if (!statusSeen) showStatus(stored.status);
+}
+
+async function renderPairing() {
+  const response = await chrome.runtime.sendMessage({ type: "pairing-secret" }).catch(() => undefined);
   pairing.textContent = response?.secret ?? "Unavailable";
 }
 
@@ -38,14 +53,16 @@ document.getElementById("copy").addEventListener("click", async () => {
 
 document.getElementById("reset").addEventListener("click", async () => {
   if (!confirm("Reset the pairing code? Nixie will need the new code.")) return;
-  const response = await chrome.runtime.sendMessage({ type: "reset-pairing-secret" });
+  const response = await chrome.runtime.sendMessage({ type: "reset-pairing-secret" }).catch(() => undefined);
   pairing.textContent = response?.secret ?? "Unavailable";
 });
 
+// The worker reports the outcome of a reconnect through the session status, which the listener above
+// renders as it changes.
 document.getElementById("retry").addEventListener("click", async () => {
-  message.textContent = "Checking...";
   await chrome.runtime.sendMessage({ type: "reconnect" }).catch(() => {});
-  setTimeout(render, 400);
+  renderStatus();
 });
 
-render();
+renderStatus();
+renderPairing();

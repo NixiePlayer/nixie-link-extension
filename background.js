@@ -52,8 +52,12 @@ async function readPairingSecret() {
   return secret;
 }
 
+// A rejected storage read must not be cached for the worker's life, so the memo clears on failure.
 function pairingSecret() {
-  return (pairingSecretPromise ??= readPairingSecret());
+  return (pairingSecretPromise ??= readPairingSecret().catch((error) => {
+    pairingSecretPromise = undefined;
+    throw error;
+  }));
 }
 
 function resetPairingSecret() {
@@ -62,6 +66,10 @@ function resetPairingSecret() {
     .then(async () => {
       await chrome.storage.local.remove(SECRET_KEY);
       return readPairingSecret();
+    })
+    .catch((error) => {
+      pairingSecretPromise = undefined;
+      throw error;
     }));
 }
 
@@ -74,7 +82,10 @@ async function readInstallId() {
 }
 
 function installId() {
-  return (installIdPromise ??= readInstallId());
+  return (installIdPromise ??= readInstallId().catch((error) => {
+    installIdPromise = undefined;
+    throw error;
+  }));
 }
 
 function brand() {
@@ -87,7 +98,7 @@ function brand() {
 
 async function collect() {
   const all = await chrome.cookies.getAll({ domain: "youtube.com" });
-  return all
+  const cookies = all
     .filter((cookie) => COOKIE_NAMES.has(cookie.name) && cookie.value !== "")
     .map((cookie) => ({
       name: cookie.name,
@@ -98,6 +109,9 @@ async function collect() {
       httpOnly: cookie.httpOnly,
       expirationDate: cookie.session ? undefined : cookie.expirationDate,
     }));
+  // Signed out means an empty set, as the privacy notice promises. Visitor and consent cookies that
+  // survive sign-out stay in the browser.
+  return signedIn(cookies) ? cookies : [];
 }
 
 function signedIn(cookies) {
@@ -140,6 +154,8 @@ async function connect() {
   port = opened;
 
   opened.onDisconnect.addListener(() => {
+    // Reading lastError marks a missing or crashed host as handled and keeps the console quiet.
+    void chrome.runtime.lastError;
     if (port === opened) port = null;
     setStatus("app-not-running");
   });
@@ -166,21 +182,24 @@ async function connect() {
   }
 }
 
-chrome.runtime.onStartup.addListener(connect);
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(RECONNECT_ALARM, { periodInMinutes: 1 });
-  connect();
+// Alarms are not guaranteed to survive a browser restart, so the alarm is asserted on every worker
+// start. Create only when absent: a same-name create replaces the alarm and moves its next fire a
+// minute forward, and frequent cookie events could restart the worker often enough to starve it.
+chrome.alarms.get(RECONNECT_ALARM).then((alarm) => {
+  if (!alarm) chrome.alarms.create(RECONNECT_ALARM, { periodInMinutes: 1 });
 });
+
+chrome.runtime.onStartup.addListener(connect);
+chrome.runtime.onInstalled.addListener(connect);
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === RECONNECT_ALARM) connect();
 });
 
+// Only the auth cookies decide the signed-in Boolean; host_permissions already limits delivery to
+// youtube.com.
 chrome.cookies.onChanged.addListener(({ cookie }) => {
-  if (port && COOKIE_NAMES.has(cookie.name) && (cookie.domain === "youtube.com" || cookie.domain.endsWith(".youtube.com"))) {
-    announceStatus(port).catch(() => {});
-  }
+  if (port && AUTH_NAMES.has(cookie.name)) announceStatus(port).catch(() => {});
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
