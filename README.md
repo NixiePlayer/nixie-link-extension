@@ -11,6 +11,11 @@ Nixie Link connects the YouTube session in one Chromium browser profile to the
 It exists mainly for Windows, where current Chromium browsers use App-Bound Encryption and a normal
 desktop app cannot read their cookie database.
 
+It works in Chrome, Edge, Brave, Vivaldi and Chromium on Windows, macOS and Linux. Firefox is not
+supported and needs no extension: Nixie reads a Firefox profile from disk on every platform. On Linux
+it reaches only a browser installed the traditional way, since a snap or flatpak browser cannot launch
+a native messaging host outside its confinement.
+
 > [!IMPORTANT]
 > Nixie is independent and unofficial. It is not affiliated with, endorsed by, or sponsored by
 > Google or YouTube. YouTube and YouTube Music are trademarks of Google LLC.
@@ -28,8 +33,11 @@ marketplace. The only release channel is this repository.
 5. Turn on **Developer mode** and select **Load unpacked**.
 6. Select the folder that contains `manifest.json`.
 7. Confirm that the extension ID is `pgknibkmcmahfafgbkndpkkcpciigleb`.
-8. Open the Nixie Link popup and copy its pairing code.
-9. Paste the code into the connected browser row on Nixie's sign-in screen.
+8. Sign in to YouTube Music in this browser profile, if you have not already.
+9. Open the Nixie Link popup and copy its pairing code.
+10. Paste the code into the connected browser row on Nixie's sign-in screen, then select **Connect**.
+    The row appears by itself once the extension has connected, and offers the pairing field only
+    while the profile is signed in.
 
 The public key in `manifest.json` gives unpacked installs a stable ID. It is not proof that the code
 is genuine because another unpacked extension can copy that public key. The private pairing code is
