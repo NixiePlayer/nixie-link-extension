@@ -1,0 +1,8 @@
+# Line endings are LF everywhere, checked out and stored. There is no formatter here to catch a file
+# that arrives with CRLF from a Windows checkout, and the desktop repository enforces the same rule.
+* text=auto eol=lf
+
+# Binaries git must never rewrite.
+*.png binary
+*.zip binary
+*.pem binary

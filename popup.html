@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Nixie Link</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+      }
+      body {
+        width: 300px;
+        margin: 0;
+        padding: 16px;
+        font: 13px/1.5 system-ui, sans-serif;
+        background: #17171a;
+        color: #ececee;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 12px;
+        color: #a6a6ad;
+      }
+      a {
+        color: #8ab4ff;
+      }
+      code {
+        display: block;
+        margin-bottom: 8px;
+        padding: 8px;
+        border: 1px solid #3a3a40;
+        border-radius: 6px;
+        overflow-wrap: anywhere;
+        user-select: all;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+      button {
+        flex: 1;
+        padding: 7px;
+        border: 1px solid #3a3a40;
+        border-radius: 6px;
+        background: #26262b;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #2f2f35;
+      }
+      @media (prefers-color-scheme: light) {
+        body {
+          background: #fff;
+          color: #1a1a1c;
+        }
+        p {
+          color: #5c5c63;
+        }
+        a {
+          color: #1a4fd6;
+        }
+        code,
+        button {
+          border-color: #d4d4d8;
+        }
+        button {
+          background: #f4f4f5;
+        }
+        button:hover {
+          background: #e9e9ec;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Nixie Link</h1>
+    <p id="message">Checking...</p>
+    <p>Paste this pairing code into Nixie. Keep it private.</p>
+    <code id="pairing">Loading...</code>
+    <div class="actions">
+      <button id="copy" type="button">Copy code</button>
+      <button id="reset" type="button">Reset code</button>
+    </div>
+    <button id="retry" type="button" style="width: 100%; margin-top: 8px">Try again</button>
+    <script src="popup.js"></script>
+  </body>
+</html>

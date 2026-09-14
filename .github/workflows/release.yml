@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify the extension against the tag
+        run: |
+          node --check background.js
+          node --check popup.js
+          node --check protocol.js
+          node --test scripts/protocol.test.mjs
+          node scripts/verify.mjs "${GITHUB_REF_NAME#v}"
+      - name: Build and verify the archive
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCHIVE="nixie-link-${VERSION}.zip"
+          zip "$ARCHIVE" \
+            LICENSE \
+            manifest.json \
+            background.js \
+            protocol.js \
+            popup.html \
+            popup.js \
+            icons/icon16.png \
+            icons/icon32.png \
+            icons/icon48.png \
+            icons/icon128.png
+          cat > expected-files.txt <<'FILES'
+          LICENSE
+          background.js
+          icons/icon128.png
+          icons/icon16.png
+          icons/icon32.png
+          icons/icon48.png
+          manifest.json
+          popup.html
+          popup.js
+          protocol.js
+          FILES
+          unzip -Z1 "$ARCHIVE" | LC_ALL=C sort > actual-files.txt
+          diff -u expected-files.txt actual-files.txt
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCHIVE="nixie-link-${VERSION}.zip"
+          # A re-run for an existing tag completes the release instead of failing on it. A draft gets
+          # the fresh asset and is published. A published release keeps a working asset and only
+          # receives the archive when it is missing.
+          if DRAFT="$(gh release view "$GITHUB_REF_NAME" --json isDraft -q .isDraft 2>/dev/null)"; then
+            if [ "$DRAFT" = "true" ]; then
+              gh release upload --clobber "$GITHUB_REF_NAME" "$ARCHIVE"
+              gh release edit "$GITHUB_REF_NAME" --draft=false
+            elif gh release view "$GITHUB_REF_NAME" --json assets -q '.assets[].name' | grep -qx "$ARCHIVE"; then
+              echo "Release $GITHUB_REF_NAME already holds $ARCHIVE."
+            else
+              gh release upload "$GITHUB_REF_NAME" "$ARCHIVE"
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --notes "Download \`${ARCHIVE}\`, unzip it, and load the folder through Developer mode. [Install](https://github.com/NixiePlayer/nixie-link-extension#install) has the steps. Nixie must be installed and running. This extension is not published to a browser marketplace." \
+              "$ARCHIVE"
+          fi

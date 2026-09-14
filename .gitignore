@@ -1,0 +1,6 @@
+# The private key used to derive the stable public manifest key. Never commit it.
+nixie-extension.pem
+
+# Derived from the key, kept out for the same reason.
+.manifest-key.txt
+.extension-id.txt
