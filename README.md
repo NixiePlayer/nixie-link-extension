@@ -41,7 +41,9 @@ unpacked extensions. This project does not offer a marketplace installation as a
 
 ## Permissions and data flow
 
-- `cookies` and `https://*.youtube.com/` let the worker read YouTube cookies only.
+- `cookies` and `*://*.youtube.com/` let the worker read YouTube cookies only. Both schemes are
+  required: Chromium checks a cookie without the Secure flag against its http origin, so an https-only
+  pattern would silently drop `SID`, `HSID`, `APISID`, and `SIDCC`.
 - A fixed allowlist removes all cookie names that Nixie does not need.
 - `nativeMessaging` connects to the local host named `com.theedoran.nixie`.
 - `storage` keeps a random profile ID and a random 256-bit pairing code in this browser profile.
@@ -68,7 +70,7 @@ See [PRIVACY.md](PRIVACY.md) and [docs/design-bridge.md](docs/design-bridge.md).
 
 ## Development
 
-There is no build step and no third-party dependency.
+There is no build step and no third-party dependency. Use Node 24, the version CI runs.
 
 ```sh
 node --check background.js
@@ -92,11 +94,12 @@ module worker, private runtime surface, description limit, and optional tag vers
 
 ## Release
 
-Set `manifest.json` to the release version, commit it, and push a matching tag:
+Set `manifest.json` to the release version, commit it, and push a matching annotated tag. A
+lightweight tag is not pushed by `--follow-tags`.
 
 ```sh
-git tag v0.1.0
-git push --follow-tags
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin main --follow-tags
 ```
 
 The workflow verifies the code and tag, creates an allowlisted zip, checks its exact contents, and

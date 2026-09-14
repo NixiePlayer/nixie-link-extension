@@ -6,9 +6,13 @@ profile's pairing code.
 
 ## Data it reads
 
-The extension has host access only to `https://*.youtube.com/`. Before data leaves the worker, a fixed
+The extension has host access only to `*://*.youtube.com/`, which is `youtube.com` and its subdomains
+over http and https. Both schemes are required because Chromium checks a cookie without the Secure
+flag against its http origin, and some YouTube session cookies have no Secure flag. The extension
+makes no http request of its own. Before data leaves the worker, a fixed
 allowlist removes each cookie name that Nixie does not need. The extension does not read another site.
-It has no content script and cannot read or change page content.
+It has no content script and makes no request to YouTube. The `cookies` permission is used only to
+read.
 
 ## Data transfer
 

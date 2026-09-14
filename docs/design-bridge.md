@@ -10,7 +10,9 @@ extension cookies API, then transfers only the required cookie names to the loca
 
 ## Components
 
-1. The Manifest V3 worker reads `https://*.youtube.com/` cookies and filters a fixed allowlist.
+1. The Manifest V3 worker reads `*://*.youtube.com/` cookies and filters a fixed allowlist. Both
+   schemes are required because Chromium checks a cookie without the Secure flag against its http
+   origin. The worker has no content script and makes no request to YouTube.
 2. Chromium starts `com.theedoran.nixie` as a native messaging host for the fixed extension ID.
 3. The small native host validates its launch origin and a per-run pipe token, then relays JSON to the
    running Nixie process.
