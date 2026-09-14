@@ -21,7 +21,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 26
+          node-version: 24
       - run: node --check background.js && node --check popup.js && node --check protocol.js
       - run: node --test scripts/protocol.test.mjs
       - run: node scripts/verify.mjs
