@@ -47,6 +47,26 @@ source when the session matters to you.
 Chrome can show a warning for developer-mode extensions at startup. Some managed computers block
 unpacked extensions. This project does not offer a marketplace installation as a fallback.
 
+## Update
+
+An unpacked extension does not update itself. Replace its files in place and reload it. The profile
+ID and pairing code live in the extension's `chrome.storage.local`, which survives a reload but is
+deleted when the extension is removed.
+
+1. Download the new `nixie-link-<version>.zip` from the
+   [latest GitHub release](https://github.com/NixiePlayer/nixie-link-extension/releases/latest).
+2. Unzip it to a temporary folder.
+3. Delete the contents of the folder you loaded at install time, then copy the new files into it.
+   Keep the same folder, so the browser still finds the extension at its path.
+4. Open `chrome://extensions` or the equivalent page and select the reload button on the Nixie Link
+   card.
+5. Confirm that the card shows the new version and the ID `pgknibkmcmahfafgbkndpkkcpciigleb`.
+6. Open the Nixie Link popup and confirm that it shows the same pairing code and a connected state.
+   Nixie reconnects by itself and needs no new pairing.
+
+Do not select **Remove** and then **Load unpacked** again. Removing the extension deletes the pairing
+code, and you then have to pair again with Nixie.
+
 ## Permissions and data flow
 
 - `cookies` and `*://*.youtube.com/` let the worker read YouTube cookies only. Both schemes are
