@@ -183,10 +183,15 @@ async function connect() {
 }
 
 // Alarms are not guaranteed to survive a browser restart, so the alarm is asserted on every worker
-// start. Create only when absent: a same-name create replaces the alarm and moves its next fire a
-// minute forward, and frequent cookie events could restart the worker often enough to starve it.
+// start. Create only when absent or on an older period: a same-name create replaces the alarm and
+// moves its next fire forward, and frequent cookie events could restart the worker often enough to
+// starve it. 30 seconds is the shortest period Chrome allows, and until the first connection after a
+// cold start the app is playing on the cookies of its last launch, which upstream may have retired.
+const RECONNECT_MINUTES = 0.5;
 chrome.alarms.get(RECONNECT_ALARM).then((alarm) => {
-  if (!alarm) chrome.alarms.create(RECONNECT_ALARM, { periodInMinutes: 1 });
+  if (alarm?.periodInMinutes !== RECONNECT_MINUTES) {
+    chrome.alarms.create(RECONNECT_ALARM, { periodInMinutes: RECONNECT_MINUTES });
+  }
 });
 
 chrome.runtime.onStartup.addListener(connect);
